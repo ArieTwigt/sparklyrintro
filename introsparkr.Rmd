@@ -1,0 +1,39 @@
+---
+title: "Introduction to Spark and R"
+author: "Arie Twigt"
+date: "9/30/2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+***
+1. ### Spark
+***
+
+
+
+
+**"Unified analytics engine for large-scale data processing"**
+
+
+Developed by **Matei Zaharia** at **UC Berkeley's AMPLab** in 2009
+
+Donated in 2012 to the Apache Software foundation **-->** Apache Spark
+
+Founders of Apache Spark -- > **Databricks**
+
+<img src="img/screenshot_spark_homepage.png" width = 600px hight= 400px>
+
+
+
+
+
+```{r}
+getwd()
+
+```
+
+
+
+***
