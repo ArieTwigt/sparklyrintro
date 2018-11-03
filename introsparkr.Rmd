@@ -22,6 +22,12 @@ Install Java
 Download a **Very Large** dataset:
 https://www.dropbox.com/s/5a210w7zhm5a97p/alleen_personenauto.csv.zip?dl=0 
 
+Git repository
+`git clone https://github.com/ArieTwigt/sparklyrintro.git`
+
+
+
+
 
 ***
 
@@ -40,7 +46,25 @@ Founders of Apache Spark -- > **Databricks**
 
 ![](img/screenshot_spark_homepage.png)
 
+***
 
+# Only use Spark if you are doing really big stuff!
+
+Otherwise:
+
+Python:
+
+* **Pandas**
+* **C++**
+
+R:
+
+* **dplyr**
+* **data.table**
+* **C++**
+
+
+***
 
 
 ***
@@ -171,7 +195,7 @@ Install the latest spark version
 ```{r, eval = FALSE}
 latest_version <- tail(versions, 1)
 print(paste0("Installing Spark version: ", latest_version))
-spark_install(version=latest_version)
+spark_install(version="2.3.1")
 ```
 
 ***
@@ -335,13 +359,11 @@ Nog niet te zien in `Connections`. Bestaat niet in Spark, wel in R:
 --> Action: Compute a result based on an RDD. Result is `auto_merken`
 
 
-```{r}
-auto_merken
-```
+
 
 ```{r}
 library(ggplot2)
-autos_merk_plot <- qplot(Merk, data=head(auto_merken_df, 25), geom="bar", weight=aantal, ylab="aantal") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+autos_merk_plot <- qplot(Merk, data=head(auto_merken, 25), geom="bar", weight=aantal, ylab="aantal") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 autos_merk_plot
 ```
 

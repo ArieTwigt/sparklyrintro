@@ -1,0 +1,18 @@
+---
+title: "avondjespark"
+author: "Arie Twigt"
+date: "10/1/2018"
+output: html_document
+---
+```{r}
+install.packages("devtools")
+devtools::install_github("rstudio/sparklyr")
+```
+
+
+```{r}
+library(sparklyr)
+```
+
+
+
