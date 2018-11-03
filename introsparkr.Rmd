@@ -301,7 +301,7 @@ Read large csv-files in R faster with data.table:
 
 ```{r}
 library(readr)
-alleen_personenauto <- read_csv("data/alleen_personenauto_filtered.csv")
+alleen_personenauto_filtered <- read_csv("data/alleen_personenauto_filtered.csv")
 ```
 
 
@@ -309,7 +309,7 @@ alleen_personenauto <- read_csv("data/alleen_personenauto_filtered.csv")
 Check the dataset
 
 ```{r}
-dim(alleen_personenauto)
+dim(alleen_personenauto_filtered)
 ```
 
 ***
@@ -327,37 +327,26 @@ library(dplyr)
 
 
 
-***
 
-15. Crasht!?
-
-***
-
-Meer hardware nodig --> Cloud.
-
-
-
-
-`
 ```{r}
 start <- Sys.time()
-copy_to(sc, alleen_personenauto)
+copy_to(sc, alleen_personenauto_filtered)
 end <- Sys.time()
 end - start
 ```
 
+
+Data wrangling with **dplyr**
+
+Notice the `%>%` piping
+
 ```{r}
-auto_merken <- alleen_personenauto %>%
+auto_merken <- alleen_personenauto_filtered %>%
               group_by(Merk) %>%
               summarise(aantal = n()) %>%
               filter(aantal > 100) %>%
               arrange(desc(aantal))
 ```
-
-Nog niet te zien in `Connections`. Bestaat niet in Spark, wel in R:
-
---> Action: Compute a result based on an RDD. Result is `auto_merken`
-
 
 
 
@@ -369,7 +358,7 @@ autos_merk_plot
 
 
 ```{r}
-auto_carrosserie <- alleen_personenauto %>%
+auto_carrosserie <- alleen_personenauto_filtered %>%
               group_by(Inrichting) %>%
               summarise(aantal = n()) %>%
               filter(aantal > 100) %>%
@@ -382,8 +371,276 @@ autos_carrosserie_plot
 ```
 
 
+
+
+***
+
+End of Part 1
+
+Go Play :) with the dplyr syntax. In the next part we are going to play with some larger dataset and some prediction models.
+
 ***
 
 
-Go Play :)
 ***
+
+# Part 2, working with some really large datasets
+
+***
+
+Clear your environment and restart **R**
+
+*Session*  --> *Terminate R*
+
+If there are still elements in the **Environment** tab, execute:
+
+```{r}
+remove(list = ls())
+```
+
+
+
+### Open the required packages
+
+
+
+```{r}
+library(dplyr)
+library(sparklyr)
+```
+
+
+This time, we want some more power. We are going to overrule the default settings of the **Spark** Config
+
+
+```{r}
+config = spark_config()
+config$`sparklyr.shell.driver-memory` <- "6G"
+config$`sparklyr.shell.executor-memory` <- "6G"
+config$`spark.yarn.executor.memoryOverhead` <- "2G"
+```
+
+We set up a Spark connection
+
+```{r}
+sc <- spark_connect("local", 
+                   # version = "2.1.0", # Uncomment if you like to choose a specific version
+                    config = config)
+```
+
+
+Import the real dataset, 2.96 GB in-memory😳😳😳. This time, we use the `spark_read_csv()` function. This will import the dataset as an *RDD* in Spark and not in R. It will take a few minutes and you will hear your machine putting in some serious work 💻
+
+```{r}
+start <- Sys.time()
+
+spark_read_csv(sc, 
+               name = "alleen_personenauto", 
+               path = "data/alleen_personenauto.csv")
+
+end <- Sys.time()
+```
+
+
+Recall that the object ***alleen_personenauto*** is not present in the *Environment* tab in RStudio, but only in the *Connections* tab. We loaded the data directly from the csv-file into Spark. 
+
+> Question: what is the advantage of this approach?
+
+Is it really not available in R??
+
+```{r, eval = FALSE}
+dim(alleen_personenauto)
+```
+
+Yes, it is really not available.
+
+It is in Spark:
+
+
+```{r}
+src_tbls(sc)
+```
+
+Check the Spark UI: http://localhost:4040 
+
+There is our dataset. Check the ***Cached Partitions*** value.
+
+![](img/screenshot_spark_ui_dataset.png)
+
+Or data is divided into 23 smaller sets. Hence the name **Resilient Distributed Dataset** --> Distributed. 
+
+![](img/screenshot_dataset_distributed.png)
+
+How did Spark do this? Check out the **Jobs** tab in the *Spark UI.*
+
+
+![](img/spark_mapping_visualisation.png)
+
+
+Time to work with the data. Use our R skills to work with the large dataset that currently lives in Spark.
+
+
+Read into R with the `tbl()` function.
+
+```{r}
+tbl_autos <- tbl(sc, "alleen_personenauto")
+```
+
+
+Wow that was fast!!!! Almost 3 GB loaded from Spark into the RSession. 
+...
+...
+...
+Wait ....... did we really load the data into R? 🤔
+
+```{r}
+tbl_autos
+```
+
+Yes, we got the data right?
+
+
+Let's filter the data like we did with the smaller dataset.
+
+```{r}
+audis <- tbl_autos %>%
+  filter(Merk == "AUDI")
+```
+
+No problem, we got all the *Audi's* now.
+
+```{r}
+head(audis)
+```
+
+So, show me the average price
+
+```{r}
+mean(as.numeric(audis$Catalogusprijs), na.rm = TRUE)
+```
+
+"Not a Number"??
+
+Just show me a column than?
+
+```{r}
+audis$Kenteken
+```
+ 
+ **NULL**? 😨 What is this kind of crappy data frame?
+ 
+```{r}
+ class(audis)
+```
+
+
+--> `tbl_lazy`. ---> Resilient. It will execute only if we tell him to execute something.
+
+Execute Spark --> Now spark will work for you. You will hear your machine work again. We collect the `audis` set and saved is as an R **data frame** object.
+
+```{r}
+audis_df <- collect(audis)
+```
+
+```{r}
+mean(as.numeric(audis_df$Catalogusprijs), na.rm = TRUE)
+```
+
+
+Now we have our price. Wait... that is some crappy format, let's work on that later.
+
+Let's get all the station cars:
+
+
+
+```{r}
+audis_stations_df <- audis_df %>%
+  filter(Inrichting == "stationwagen")
+```
+
+
+> Question, are we using Spark or regular R here?
+
+
+### Find your car
+
+```{r}
+mycar <- tbl_autos %>%
+  filter(Kenteken == "TB725F")
+```
+
+```{r}
+mycar_df <- collect(mycar)
+```
+
+
+
+### Machine Learning in SparklyR
+
+
+Check available features
+
+```{r}
+str(audis_stations_df)
+```
+
+```{r}
+audis_clean <- audis %>%
+  mutate(Catalogusprijs = regexp_replace(Catalogusprijs, ",", ".")) %>% # regex
+  mutate(Catalogusprijs = as.numeric(Catalogusprijs)) %>% # convert columns
+  select(Catalogusprijs, Aantal_cilinders) %>% # select columns
+  na.omit() # remove rows with empty values ('NA', 'NaN' etc.)
+```
+
+> Question, are we using Spark or regular R here?
+
+
+# predict price per cilinder
+
+```{r}
+lm_model_1 <- audis_clean %>%
+  ml_linear_regression(Catalogusprijs ~ Aantal_cilinders) 
+```
+
+Show model performance
+
+```{r}
+summary(lm_model_1)
+```
+
+
+New model, importing cars cheaper?
+
+```{r}
+audis_clean <- audis %>%
+  mutate(Catalogusprijs = regexp_replace(Catalogusprijs, ",", ".")) %>% # regex
+  mutate(Catalogusprijs = as.numeric(Catalogusprijs)) %>% # convert columns
+  select(Catalogusprijs, Aantal_cilinders, Export_indicator) %>% # select columns
+  na.omit() # remove rows with empty values ('NA', 'NaN' etc.)
+
+```
+
+# predict price per cilinder added with export indicator
+
+```{r}
+lm_model_2 <- audis_clean %>%
+  ml_linear_regression(Catalogusprijs ~ Aantal_cilinders + Export_indicator) 
+```
+
+Show model performance
+
+```{r}
+summary(lm_model_2)
+```
+
+
+### Classification model
+
+```{r}
+ferraris_maseratis <- tbl_autos %>%
+  filter(Merk %in% c("FERRARI", "MASERATI"))
+```
+
+
+
+
